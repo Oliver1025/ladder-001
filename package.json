@@ -1,0 +1,11 @@
+{
+"name": "ladder-001",
+"version": "1.0.0",
+"main": "_worker.js",
+"scripts": {
+"deploy": "wrangler deploy"
+},
+"private": true,
+"license": "MIT",
+"dependencies": {}
+}
