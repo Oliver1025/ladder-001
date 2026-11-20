@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *" # every day
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -29,15 +29,23 @@ jobs:
           git remote add upstream https://github.com/cmliu/edgetunnel.git
           git fetch upstream main
 
-          if git diff --quiet HEAD upstream/main; then
-            # 内容和上游一致，直接对齐，顺带清理历史分叉留下的多余 merge commit
+          base=$(git merge-base HEAD upstream/main)
+          local=$(git rev-list --count ${base}..HEAD)
+          ahead=$(git rev-list --count upstream/main..HEAD)
+
+          echo "本地独占提交: $local, 领先上游: $ahead"
+
+          if [ "$local" -eq 0 ] && [ "$ahead" -gt 0 ]; then
+            # 只有上游快进 + 多余的 merge commit，没有自己的改动，可以安全对齐
             git reset --hard upstream/main
             git push --force-with-lease origin main
+            echo "已快进对齐上游，清理了 $ahead 个多余 merge commit"
+          elif [ "$local" -eq 0 ]; then
+            echo "已是最新，无需操作"
           else
-            # 有本地修改，保持原来的合并方式，不覆盖任何人的改动
+            # 有本地修改，只做合并，绝不覆盖
             if ! git pull --no-rebase upstream main; then
-              echo "[Error] 合并上游变更产生冲突，自动同步已暂停，请手动 Sync Fork 并解决冲突。"
-              echo "[Error] Merge conflict detected while syncing upstream. Please sync your fork manually and resolve the conflicts."
+              echo "[Error] 合并上游变更产生冲突，请手动 Sync Fork 并解决冲突。"
               exit 1
             fi
             git push origin main
